@@ -38,7 +38,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Waktu Kejadian</th>
+                    <th>Waktu</th>
                     <th>Metode Pemberian</th>
                 </tr>
             </thead>
@@ -98,7 +98,7 @@
             
             if(msgStr.includes("SYNC_OTOMATIS~")) {
                 const jumlahOtomatis = msgStr.split("~")[1];
-                counterLabel.innerText = `Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
+                counterLabel.innerText = `Total Pakan Otomatis Berhasil Diberikan: ${jumlahOtomatis} Kali`;
             } 
             
             else if(msgStr.includes("LIST_HISTORI~")) {
@@ -120,8 +120,8 @@
                     const waktuKejadian = pecahan[1] ? pecahan[1] : "Tidak Diketahui";
                     
                     let badge = tipe === "OTOMATIS" ? 
-                        `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
-                        `<span class="badge badge-manual">MANUAL (Tombol Web)</span>`;
+                        `<span class="badge badge-otomatis">OTOMATIS</span>` : 
+                        `<span class="badge badge-manual">MANUAL</span>`;
                     
                     const baris = `<tr><td>${waktuKejadian}</td><td>${badge}</td></tr>`;
                     tabelHistori.innerHTML += baris;
