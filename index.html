@@ -20,25 +20,29 @@
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .badge-otomatis { background-color: #d5f5e3; color: #1e8449; }
         .badge-manual { background-color: #fdebd0; color: #b9770e; }
+        .btn-clear { background-color: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; float: right; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Smart Fish Feeder</h1>
-    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Kasih Pakan Ikan Otomatis dan Dari Jarak Jauh</p>
+    <h1>🐠 Smart Fish Feeder</h1>
+    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + Full Multi-Device Sync</p>
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
     <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi data dari alat...</div>
     
-    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Sekarang!</button>
+    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
 
     <div style="margin-top: 30px;">
-        <h3 style="text-align: left;">Riwayat Aktivitas Terpusat (Ter-sinkronisasi)</h3>
+        <h3 style="text-align: left;">
+            📜 Riwayat Aktivitas Terpusat
+            <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Tampilan</button>
+        </h3>
         <table>
             <thead>
                 <tr>
-                    <th>Urutan Kejadian</th>
+                    <th>Waktu Real-time</th>
                     <th>Metode Pemberian</th>
                 </tr>
             </thead>
@@ -57,12 +61,69 @@
     const counterLabel = document.getElementById("counter-label");
     const tabelHistori = document.getElementById("tabel-histori");
 
+    let riwayatWaktuLokal = [];
+
+    // Muat arsip waktu yang sudah pernah dicatat oleh browser ini sebelumnya
+    function muatArsipWaktu() {
+        const dataSimpanan = localStorage.getItem("arsip_waktu_pakan");
+        if(dataSimpanan) {
+            riwayatWaktuLokal = JSON.parse(dataSimpanan);
+        }
+    }
+
+    function hapusSemuaHistori() {
+        if(confirm("Hapus riwayat tampilan di browser ini? (Data di mesin ESP32 tetap aman)")) {
+            riwayatWaktuLokal = [];
+            localStorage.removeItem("arsip_waktu_pakan");
+            tampilkanKeTabel([]);
+        }
+    }
+
+    function tampilkanKeTabel(arrayHistoriMesin) {
+        tabelHistori.innerHTML = "";
+        
+        if(!arrayHistoriMesin || arrayHistoriMesin.length === 0 || arrayHistoriMesin[0] === "") {
+            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada riwayat aktivitas di mesin...</td></tr>';
+            return;
+        }
+
+        const penandaWaktuBaru = [];
+        const waktuSekarang = new Date().toLocaleString('id-ID', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            day: 'numeric', month: 'short', year: 'numeric'
+        });
+
+        // Loop dari data terlama ke terbaru untuk mencocokkan/membuat stempel waktu
+        for(let i = 0; i < arrayHistoriMesin.length; i++) {
+            let tipe = arrayHistoriMesin[i];
+            
+            // Jika browser sudah punya catatan waktu untuk indeks ini, pakai yang lama. 
+            // Jika belum ada (karena device baru dibuka), buatkan waktu saat ini.
+            let waktuCetak = riwayatWaktuLokal[i] ? riwayatWaktuLokal[i] : waktuSekarang + " (Synced)";
+            penandaWaktuBaru.push(waktuCetak);
+        }
+
+        // Perbarui penyimpanan lokal agar sinkron ke depannya
+        riwayatWaktuLokal = penandaWaktuBaru;
+        localStorage.setItem("arsip_waktu_pakan", JSON.stringify(riwayatWaktuLokal));
+
+        // Render ke tabel secara terbalik (Terbaru di atas)
+        for(let i = arrayHistoriMesin.length - 1; i >= 0; i--) {
+            let tipe = arrayHistoriMesin[i];
+            let badge = tipe === "OTOMATIS" ? 
+                `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
+                `<span class="badge badge-manual">MANUAL (Tombol Web)</span>`;
+            
+            const baris = `<tr><td>${riwayatWaktuLokal[i]}</td><td>${badge}</td></tr>`;
+            tabelHistori.innerHTML += baris;
+        }
+    }
+
     client.on('connect', () => {
         statusLabel.innerText = "Koneksi MQTT: ONLINE";
         statusLabel.className = "status-mqtt online";
         client.subscribe("cotswoldies/pakan/status");
         
-        // Pancing ESP32 untuk kirim data terpusat saat halaman baru dimuat
         setTimeout(() => {
             client.publish("cotswoldies/pakan/kontrol", "MINTA_DATA");
         }, 1000);
@@ -85,39 +146,20 @@
         if (topic === "cotswoldies/pakan/status") {
             const msgStr = message.toString();
             
-            // 📊 Sinkronisasi Kotak Angka Total
             if(msgStr.startsWith("SYNC_OTOMATIS:")) {
                 const jumlahOtomatis = msgStr.split(":")[1];
-                counterLabel.innerText = `Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
+                counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
             } 
             
-            // 📜 Sinkronisasi Tabel Riwayat dari Memori Alat
             else if(msgStr.startsWith("LIST_HISTORI:")) {
                 const isiData = msgStr.split(":")[1];
-                tabelHistori.innerHTML = "";
-                
-                if(!isiData || isiData.trim() === "") {
-                    tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada riwayat aktivitas di mesin...</td></tr>';
-                    return;
-                }
-                
-                const arrayHistori = isiData.split(",");
-                
-                // Looping terbalik agar aktivitas paling baru muncul di urutan teratas
-                let counterUrutan = arrayHistori.length;
-                for(let i = arrayHistori.length - 1; i >= 0; i--) {
-                    let tipe = arrayHistori[i];
-                    let badge = tipe === "OTOMATIS" ? 
-                        `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
-                        `<span class="badge badge-manual">MANUAL (Tombol Web)</span>`;
-                    
-                    const baris = `<tr><td>Aktivitas Ke-${counterUrutan}</td><td>${badge}</td></tr>`;
-                    tabelHistori.innerHTML += baris;
-                    counterUrutan--;
-                }
+                const arrayHistori = isiData ? isiData.split(",") : [];
+                tampilkanKeTabel(arrayHistori);
             }
         }
     });
+
+    muatArsipWaktu();
 </script>
 </body>
 </html>
