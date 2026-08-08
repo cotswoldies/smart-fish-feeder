@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Fish Feeder - MQTT Dashboard</title>
+    <title>Smart Fish Feeder - Live MQTT Dashboard</title>
+    <!-- Memanggil Library MQTT CDN Resmi -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f4f8; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -26,7 +27,7 @@
 
 <div class="container">
     <h1>🐠 Smart Fish Feeder</h1>
-    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + Memori Anti-Refresh</p>
+    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT Kilat + Penyimpanan Browser Lokal</p>
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
     <br>
@@ -45,26 +46,26 @@
                 </tr>
             </thead>
             <tbody id="tabel-histori">
-                <!-- Data bakal diisi otomatis via JavaScript -->
+                <!-- Diisi otomatis via JavaScript -->
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // ⚠️ SAMAKAN NAMA TOPIK UNIK KAMU DENGAN YANG DI WOKWI!
+    // Konfigurasi Topik Utama (Pastikan sama persis dengan kode Wokwi!)
     const TOPIC_PREFIX = "cotswoldies"; 
 
+    // Menggunakan koneksi WebSocket terenkripsi HiveMQ
     const broker = "wss://broker.hivemq.com:8884/mqtt";
     const client = mqtt.connect(broker);
 
     const statusLabel = document.getElementById("status-label");
     const tabelHistori = document.getElementById("tabel-histori");
 
-    // Array penampung histori pakan
     let listHistori = [];
 
-    // 1. Fungsi memuat data lama dari memori browser saat pertama kali web dibuka
+    // Membaca data lama dari memori browser saat web di-refresh
     function muatHistoriDariMemori() {
         const dataLokal = localStorage.getItem("riwayat_pakan_ikan");
         if (dataLokal) {
@@ -75,7 +76,6 @@
         }
     }
 
-    // 2. Fungsi merender isi array ke tabel HTML
     function tampilkanKeTabel() {
         tabelHistori.innerHTML = "";
         listHistori.forEach(item => {
@@ -88,9 +88,8 @@
         });
     }
 
-    // 3. Fungsi menghapus riwayat kalau tabelnya kepenuhan
     function hapusSemuaHistori() {
-        if(confirm("Apakah kamu yakin ingin menghapus semua riwayat?")) {
+        if(confirm("Apakah kamu yakin ingin menghapus semua riwayat di browser ini?")) {
             listHistori = [];
             localStorage.removeItem("riwayat_pakan_ikan");
             tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>';
@@ -111,13 +110,13 @@
     function beriPakanPaksa() {
         if (client.connected) {
             client.publish(`${TOPIC_PREFIX}/pakan/kontrol`, 'MAKAN_PAKSA');
-            alert("Sinyal MQTT terkirim! Servo akan berputar saat ini juga.");
+            alert("Sinyal MQTT terkirim! Servo akan segera berputar.");
         } else {
-            alert("Gagal mengirim! Koneksi ke MQTT Broker terputus.");
+            alert("Gagal! Koneksi ke MQTT Broker sedang terputus.");
         }
     }
 
-    // 4. Menerima laporan sukses dari ESP32
+    // Menangkap feedback sukses dari ESP32
     client.on('message', (topic, message) => {
         if (topic === `${TOPIC_PREFIX}/pakan/status`) {
             const metodeData = message.toString();
@@ -127,23 +126,20 @@
                 day: 'numeric', month: 'short', year: 'numeric'
             });
 
-            // Masukkan data baru di urutan paling atas array
+            // Masukkan data baru di posisi paling atas (paling baru)
             listHistori.unshift({ waktu: waktuLokal, metode: metodeData });
 
-            // Batasi memori maksimal simpan 50 riwayat aja biar browser gak lemot
-            if (listHistori.length > 50) {
-                listHistori.pop();
-            }
+            // Batasi maksimal 50 riwayat agar penyimpanan lokal tetap ringan
+            if (listHistori.length > 50) listHistori.pop();
 
-            // Simpan ke memori permanen browser lokal
+            // Simpan secara permanen ke localStorage browser
             localStorage.setItem("riwayat_pakan_ikan", JSON.stringify(listHistori));
             
-            // Perbarui tabel secara live
             tampilkanKeTabel();
         }
     });
 
-    // Jalankan pemuatan data saat web di-refresh/dibuka
+    // Jalankan fungsi memuat data saat pertama kali buka web
     muatHistoriDariMemori();
 </script>
 </body>
