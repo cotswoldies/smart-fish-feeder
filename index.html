@@ -121,27 +121,39 @@
 </div>
 
 <script>
-    // Konfigurasi Kunci Resmi ThingSpeak Milikmu
+    // ⚠️ MASUKKAN TOKEN TELEGRAM BOT YANG KAMU DAPAT DARI BOTFATHER DI SINI
+    const BOT_TOKEN = "MASUKKAN_TOKEN_BOT_TELEGRAM_MU"; 
+    
+    // Konfigurasi ThingSpeak Resmi untuk Membaca Histori
     const channelID = "3448220"; 
     const readKey   = "DL0M6SKO1Z65P72B"; 
-    const writeKey  = "RTYXWVPIXN2SUL60";
 
     let sembunyikanData = false;
 
     function beriPakanPaksa() {
         sembunyikanData = false; 
         
-        // Menggunakan URL Update Channel Utama untuk mengaktifkan Field 2
-        const url = `https://api.thingspeak.com/update?api_key=${writeKey}&field2=1`;
+        // Website mengirim instruksi ke Telegram Bot API
+        const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
         
-        // Trik Legendaris: Kirim data lewat Image Object agar 100% Kebal dari Blokir CORS Browser
-        const img = new Image();
-        img.src = url;
-        
-        alert("Sukses! Sinyal pakan paksa dikirim. Motor servo akan bergerak dalam 1-5 detik.");
-        
-        // Beri jeda 5 detik baru refresh tabel riwayat agar data terbaru sudah sempat masuk database
-        setTimeout(ambilHistori, 5000); 
+        // Trik: Menggunakan chat_id random (misal 1111) karena tujuan kita hanya melempar teks ke server Telegram
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: 1111,
+                text: "/makan"
+            })
+        })
+        .then(() => {
+            alert("Instruksi Sukses! Sinyal kilat terkirim ke Telegram Server. Servo akan berputar.");
+            // Beri jeda 6 detik agar ESP32 berputar & sempat kirim log ke ThingSpeak
+            setTimeout(ambilHistori, 6000); 
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Kendala jaringan.");
+        });
     }
 
     function hapusTampilanHistori() {
@@ -163,7 +175,6 @@
             const tabel = document.getElementById("tabel-histori");
             tabel.innerHTML = ""; 
 
-            // Susun data dari yang paling baru di atas
             feeds.reverse().forEach(feed => {
                 if (feed.field1 === null && feed.field2 === null) return;
 
@@ -196,10 +207,7 @@
         .catch(err => console.error("Gagal memuat histori:", err));
     }
 
-    // Jalankan pencatatan riwayat pertama kali saat web dibuka
     ambilHistori();
-    
-    // Web otomatis memperbarui tabel setiap 15 detik sekali agar realtime
     setInterval(ambilHistori, 15000); 
 </script>
 
