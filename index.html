@@ -94,7 +94,6 @@
 
     client.on('message', (topic, message) => {
         if (topic === "cotswoldies/pakan/status") {
-            // Memastikan payload dikonversi menjadi String murni
             const msgStr = message.toString();
             
             if(msgStr.includes("SYNC_OTOMATIS~")) {
