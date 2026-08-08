@@ -26,19 +26,19 @@
 <body>
 
 <div class="container">
-    <h1>Smart Fish Feeder</h1>
-    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Kasih Pakan Ikan Jarak Jauh Real-Time</p>
+    <h1>🐠 Smart Fish Feeder</h1>
+    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + Auto Synchronization</p>
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
     
     <!-- Kotak Sinkronisasi Data (Tetap Dipertahankan) -->
-    <div id="counter-label" class="counter-box"> Menunggu sinkronisasi jumlah pakan otomatis...</div>
+    <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi jumlah pakan otomatis...</div>
     
-    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Sekarang!</button>
+    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
 
     <div style="margin-top: 30px;">
         <h3 style="text-align: left;">
-            Riwayat Aktivitas Pakan
+            📜 Riwayat Aktivitas Pakan
             <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Riwayat</button>
         </h3>
         <table>
@@ -78,7 +78,7 @@
         const savedCount = localStorage.getItem("total_otomatis_counter");
         if(savedCount) {
             lastOtomatisCount = parseInt(savedCount);
-            counterLabel.innerText = `Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${savedCount} Kali`;
+            counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${savedCount} Kali`;
         }
     }
 
@@ -144,7 +144,7 @@
             // Kasus 1: Menerima data sinkronisasi otomatis dari alat
             if(msgStr.startsWith("SYNC_OTOMATIS:")) {
                 const jumlahOtomatis = parseInt(msgStr.split(":")[1]);
-                counterLabel.innerText = `Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
+                counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
                 localStorage.setItem("total_otomatis_counter", jumlahOtomatis);
 
                 // Cek jika angkanya bertambah (artinya ada jadwal pakan otomatis baru yang terjadi)
