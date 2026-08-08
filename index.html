@@ -34,11 +34,11 @@
     <!-- Kotak Sinkronisasi Data (Tetap Dipertahankan) -->
     <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi jumlah pakan otomatis...</div>
     
-    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
+    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Sekarang!</button>
 
     <div style="margin-top: 30px;">
         <h3 style="text-align: left;">
-            📜 Riwayat Aktivitas Pakan
+            Riwayat Aktivitas Pakan
             <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Riwayat</button>
         </h3>
         <table>
@@ -144,7 +144,7 @@
             // Kasus 1: Menerima data sinkronisasi otomatis dari alat
             if(msgStr.startsWith("SYNC_OTOMATIS:")) {
                 const jumlahOtomatis = parseInt(msgStr.split(":")[1]);
-                counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
+                counterLabel.innerText = `📊\ Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
                 localStorage.setItem("total_otomatis_counter", jumlahOtomatis);
 
                 // Cek jika angkanya bertambah (artinya ada jadwal pakan otomatis baru yang terjadi)
