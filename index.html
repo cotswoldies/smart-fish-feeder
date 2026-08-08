@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Fish Feeder Local Dashboard</title>
+    <title>Smart Fish Feeder - MQTT Dashboard</title>
+    <!-- Memanggil Library MQTT resmi untuk Browser -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f4f8; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .container { max-width: 600px; width: 100%; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
-        h1 { color: #2c3e50; }
-        .btn-pakan { background: linear-gradient(135deg, #1abc9c, #16a085); color: white; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 50px; cursor: pointer; width: 80%; margin: 20px 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left; }
+        h1 { color: #2c3e50; margin-bottom: 5px; }
+        .status-mqtt { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 5px 10px; border-radius: 4px; display: inline-block; }
+        .online { background-color: #d5f5e3; color: #1e8449; }
+        .offline { background-color: #fadbd8; color: #78281f; }
+        .btn-pakan { background: linear-gradient(135deg, #1abc9c, #16a085); color: white; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 50px; cursor: pointer; width: 80%; box-shadow: 0 5px 15px rgba(22, 160, 133, 0.3); }
+        table { width: 100%; border-collapse: collapse; margin-top: 25px; text-align: left; }
         th, td { padding: 12px; border-bottom: 1px solid #ddd; }
         th { background-color: #f8f9fa; color: #7f8c8d; }
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
@@ -21,59 +26,85 @@
 
 <div class="container">
     <h1>🐠 Smart Fish Feeder</h1>
-    <p style="color: #7f8c8d;">Sistem Pakan Mandiri (Tanpa Cloud Cloud Club)</p>
-
+    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol Kilat MQTT Berbasis Cloud</p>
+    
+    <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
+    <br>
     <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
 
     <div style="margin-top: 30px;">
-        <h3>📜 Riwayat Waktu Pemberian Pakan</h3>
+        <h3>📜 Riwayat Aktivitas Pakan (Live)</h3>
         <table>
             <thead>
                 <tr>
-                    <th>Waktu Kejadian (RTC Wokwi)</th>
-                    <th>Metode</th>
+                    <th>Waktu Real-time</th>
+                    <th>Metode Pemberian</th>
                 </tr>
             </thead>
             <tbody id="tabel-histori">
-                <tr><td colspan="2" style="text-align:center; color:#95a5a6;">Memuat data dari ESP32...</td></tr>
+                <tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // ⚠️ NYALAKAN WOKWI TERLEBIH DAHULU, LIHAT IP ADDRESS DI SERIAL MONITOR, LALU PASTE DI SINI!
-    // Contoh format: "http://10.0.0.2" (Tergantung IP yang didapat dari simulator Wokwi)
-    const ESP32_IP = "MASUKKAN_IP_ADDRESS_WOKWI_KAMU"; 
+    // Koneksi ke Public Broker HiveMQ via WebSocket port aman (8884)
+    const broker = "wss://broker.hivemq.com:8884/mqtt";
+    const client = mqtt.connect(broker);
 
+    const statusLabel = document.getElementById("status-label");
+    const tabelHistori = document.getElementById("tabel-histori");
+
+    // Event saat web berhasil konek ke broker MQTT
+    client.on('connect', () => {
+        statusLabel.innerText = "Koneksi MQTT: ONLINE (Siap Kilat)";
+        statusLabel.className = "status-mqtt online";
+        
+        // Subscribe ke topik status biar web bisa dapet laporan otomatis dari ESP32
+        client.subscribe('cotswoldies/pakan/status');
+    });
+
+    client.on('error', (err) => {
+        statusLabel.innerText = "Koneksi MQTT: GAGAL";
+        statusLabel.className = "status-mqtt offline";
+        console.error(err);
+    });
+
+    // Fungsi Tombol Pakan Paksa (Publish data ke ESP32)
     function beriPakanPaksa() {
-        fetch(`${ESP32_IP}/paksa`)
-        .then(() => {
-            alert("Sukses! Perintah diterima langsung oleh ESP32.");
-            setTimeout(ambilHistori, 1000);
-        })
-        .catch(() => alert("Gagal konek ke ESP32. Pastikan Wokwi sudah di-Play dan IP-nya benar!"));
+        if (client.connected) {
+            client.publish('cotswoldies/pakan/kontrol', 'MAKAN_PAKSA');
+            alert("Sinyal MQTT terkirim! Servo akan berputar saat ini juga.");
+        } else {
+            alert("Gagal mengirim! Koneksi ke MQTT Broker terputus.");
+        }
     }
 
-    function ambilHistori() {
-        fetch(`${ESP32_IP}/histori`)
-        .then(res => res.json())
-        .then(data => {
-            const tabel = document.getElementById("tabel-histori");
-            tabel.innerHTML = "";
-            data.forEach(log => {
-                let badge = log.metode === "OTOMATIS" ? 
-                    `<span class="badge badge-otomatis">OTOMATIS</span>` : 
-                    `<span class="badge badge-manual">MANUAL</span>`;
-                tabel.innerHTML += `<tr><td>${log.waktu} WIB</td><td>${badge}</td></tr>`;
+    // Mendengarkan laporan feedback balik dari ESP32
+    client.on('message', (topic, message) => {
+        if (topic === 'cotswoldies/pakan/status') {
+            const metode = message.toString(); // Isinya: 'OTOMATIS' atau 'MANUAL'
+            
+            const waktuLokal = new Date().toLocaleString('id-ID', {
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                day: 'numeric', month: 'short', year: 'numeric'
             });
-            if(data.length === 0) tabel.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada data pakan.</td></tr>';
-        })
-        .catch(err => console.log("ESP32 belum siap/offline."));
-    }
 
-    // Ambil histori tiap 4 detik sekali
-    setInterval(ambilHistori, 4000);
+            // Hapus baris kosong pertama kali
+            if (tabelHistori.innerHTML.includes("Belum ada aktivitas")) {
+                tabelHistori.innerHTML = "";
+            }
+
+            let badge = metode === "OTOMATIS" ? 
+                `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
+                `<span class="badge badge-manual">MANUAL (Tombol Web)</span>`;
+
+            // Masukkan data baru di baris paling atas tabel
+            const barisBaru = `<tr><td>${waktuLokal} WIB</td><td>${badge}</td></tr>`;
+            tabelHistori.innerHTML = barisBaru + tabelHistori.innerHTML;
+        }
+    });
 </script>
 </body>
 </html>
