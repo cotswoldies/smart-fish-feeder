@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Fish Feeder - Multi-Device Sync</title>
+    <title>Smart Fish Feeder - Real-time Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f4f8; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -20,34 +20,30 @@
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .badge-otomatis { background-color: #d5f5e3; color: #1e8449; }
         .badge-manual { background-color: #fdebd0; color: #b9770e; }
-        .btn-clear { background-color: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; float: right; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Smart Fish Feeder</h1>
-    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + Full Multi-Device Sync</p>
+    <h1>🐠 Smart Fish Feeder</h1>
+    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + True Real-time Sync</p>
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
-    <div id="counter-label" class="counter-box">Menunggu sinkronisasi data dari alat...</div>
+    <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi data dari alat...</div>
     
-    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Sekarang!</button>
+    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
 
     <div style="margin-top: 30px;">
-        <h3 style="text-align: left;">
-            Riwayat Aktivitas Terpusat
-            <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Histori</button>
-        </h3>
+        <h3 style="text-align: left;">📜 Riwayat Aktivitas Terpusat (Real-time)</h3>
         <table>
             <thead>
                 <tr>
-                    <th>Waktu Real-time</th>
+                    <th>Waktu Kejadian</th>
                     <th>Metode Pemberian</th>
                 </tr>
             </thead>
             <tbody id="tabel-histori">
-                <tr><td colspan="2" style="text-align:center; color:#95a5a6;">Memuat riwayat dari ESP32...</td></tr>
+                <tr><td colspan="2" style="text-align:center; color:#95a5a6;">Memuat riwayat terpusat dari mesin...</td></tr>
             </tbody>
         </table>
     </div>
@@ -61,62 +57,11 @@
     const counterLabel = document.getElementById("counter-label");
     const tabelHistori = document.getElementById("tabel-histori");
 
-    let riwayatWaktuLokal = [];
-
-    // Muat arsip waktu yang sudah pernah dicatat oleh browser ini sebelumnya
-    function muatArsipWaktu() {
-        const dataSimpanan = localStorage.getItem("arsip_waktu_pakan");
-        if(dataSimpanan) {
-            riwayatWaktuLokal = JSON.parse(dataSimpanan);
-        }
-    }
-
-    function hapusSemuaHistori() {
-        if(confirm("Hapus riwayat tampilan di browser ini? (Data di mesin ESP32 tetap aman)")) {
-            riwayatWaktuLokal = [];
-            localStorage.removeItem("arsip_waktu_pakan");
-            tampilkanKeTabel([]);
-        }
-    }
-
-    function tampilkanKeTabel(arrayHistoriMesin) {
-        tabelHistori.innerHTML = "";
-        
-        if(!arrayHistoriMesin || arrayHistoriMesin.length === 0 || arrayHistoriMesin[0] === "") {
-            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada riwayat aktivitas di mesin...</td></tr>';
-            return;
-        }
-
-        const penandaWaktuBaru = [];
-        const waktuSekarang = new Date().toLocaleString('id-ID', {
+    function dapatkanWaktuSekarang() {
+        return new Date().toLocaleString('id-ID', {
             hour: '2-digit', minute: '2-digit', second: '2-digit',
-            day: 'numeric', month: 'short', year: 'numeric'
-        });
-
-        // Loop dari data terlama ke terbaru untuk mencocokkan/membuat stempel waktu
-        for(let i = 0; i < arrayHistoriMesin.length; i++) {
-            let tipe = arrayHistoriMesin[i];
-            
-            // Jika browser sudah punya catatan waktu untuk indeks ini, pakai yang lama. 
-            // Jika belum ada (karena device baru dibuka), buatkan waktu saat ini.
-            let waktuCetak = riwayatWaktuLokal[i] ? riwayatWaktuLokal[i] : waktuSekarang;
-            penandaWaktuBaru.push(waktuCetak);
-        }
-
-        // Perbarui penyimpanan lokal agar sinkron ke depannya
-        riwayatWaktuLokal = penandaWaktuBaru;
-        localStorage.setItem("arsip_waktu_pakan", JSON.stringify(riwayatWaktuLokal));
-
-        // Render ke tabel secara terbalik (Terbaru di atas)
-        for(let i = arrayHistoriMesin.length - 1; i >= 0; i--) {
-            let tipe = arrayHistoriMesin[i];
-            let badge = tipe === "OTOMATIS" ? 
-                `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
-                `<span class="badge badge-manual">MANUAL (Tombol Web)</span>`;
-            
-            const baris = `<tr><td>${riwayatWaktuLokal[i]}</td><td>${badge}</td></tr>`;
-            tabelHistori.innerHTML += baris;
-        }
+            day: 'numeric', month: 'short'
+        }) + " WIB";
     }
 
     client.on('connect', () => {
@@ -136,7 +81,9 @@
 
     function beriPakanPaksa() {
         if (client.connected) {
-            client.publish("cotswoldies/pakan/kontrol", 'MAKAN_PAKSA');
+            // Kirim perintah sekaligus stempel waktu real-time saat tombol diklik
+            const waktuKlik = dapatkanWaktuSekarang();
+            client.publish("cotswoldies/pakan/kontrol", 'MAKAN_PAKSA:' + waktuKlik);
         } else {
             alert("Gagal! Koneksi terputus.");
         }
@@ -148,18 +95,36 @@
             
             if(msgStr.startsWith("SYNC_OTOMATIS:")) {
                 const jumlahOtomatis = msgStr.split(":")[1];
-                counterLabel.innerText = `Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
+                counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
             } 
             
             else if(msgStr.startsWith("LIST_HISTORI:")) {
                 const isiData = msgStr.split(":")[1];
-                const arrayHistori = isiData ? isiData.split(",") : [];
-                tampilkanKeTabel(arrayHistori);
+                tabelHistori.innerHTML = "";
+                
+                if(!isiData || isiData.trim() === "") {
+                    tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada riwayat aktivitas di mesin...</td></tr>';
+                    return;
+                }
+                
+                const arrayHistori = isiData.split(",");
+                
+                // Render dari data terbaru ke terlama (terbalik)
+                for(let i = arrayHistori.length - 1; i >= 0; i--) {
+                    const pecahan = arrayHistori[i].split("|");
+                    const tipe = pecahan[0];
+                    const waktuKejadian = pecahan[1] ? pecahan[1] : "Tidak Diketahui";
+                    
+                    let badge = tipe === "OTOMATIS" ? 
+                        `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
+                        `<span class="badge badge-manual">MANUAL (Tombol Web)</span>`;
+                    
+                    const baris = `<tr><td>${waktuKejadian}</td><td>${badge}</td></tr>`;
+                    tabelHistori.innerHTML += baris;
+                }
             }
         }
     });
-
-    muatArsipWaktu();
 </script>
 </body>
 </html>
