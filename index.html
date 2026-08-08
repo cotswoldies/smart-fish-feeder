@@ -121,10 +121,10 @@
 </div>
 
 <script>
-    // ⚠️ MASUKKAN TOKEN TELEGRAM BOT YANG KAMU DAPAT DARI BOTFATHER DI SINI
-    const BOT_TOKEN = "MASUKKAN_TOKEN_BOT_TELEGRAM_MU"; 
+    // Token Telegram Bot resmi milikmu sudah terpasang
+    const BOT_TOKEN = "8806802002:AAFhCqBQ9uAWrN57C0vO_18e2T5BFISE3uo"; 
     
-    // Konfigurasi ThingSpeak Resmi untuk Membaca Histori
+    // Konfigurasi ThingSpeak Resmi untuk membaca histori pencatatan
     const channelID = "3448220"; 
     const readKey   = "DL0M6SKO1Z65P72B"; 
 
@@ -136,7 +136,7 @@
         // Website mengirim instruksi ke Telegram Bot API
         const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
         
-        // Trik: Menggunakan chat_id random (misal 1111) karena tujuan kita hanya melempar teks ke server Telegram
+        // Kirim perintah rahasia /makan ke broker Telegram (chat_id diisi default formal)
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -147,12 +147,12 @@
         })
         .then(() => {
             alert("Instruksi Sukses! Sinyal kilat terkirim ke Telegram Server. Servo akan berputar.");
-            // Beri jeda 6 detik agar ESP32 berputar & sempat kirim log ke ThingSpeak
+            // Beri jeda 6 detik agar ESP32 berputar & sempat kirim log balik ke ThingSpeak
             setTimeout(ambilHistori, 6000); 
         })
         .catch(err => {
             console.error(err);
-            alert("Kendala jaringan.");
+            alert("Kendala jaringan saat mengirim ke Telegram.");
         });
     }
 
