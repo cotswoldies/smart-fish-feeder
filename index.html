@@ -13,7 +13,7 @@
         .online { background-color: #d5f5e3; color: #1e8449; }
         .offline { background-color: #fadbd8; color: #78281f; }
         .counter-box { background-color: #ebf5fb; color: #2980b9; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; margin-bottom: 20px; border: 1px solid #a9cce3;}
-        .btn-pakan { background: linear-gradient(135deg, #1abc9c, #16a085); color: white; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 50px; cursor: pointer; width: 80%; box-shadow: 0 5px 15px rgba(22, 160, 133, 0.3); }
+        .btn-pakan { background: linear-gradient(135deg, #1abc9c, #16a085); color: white; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 50px; cursor: pointer; width: 80%; box-shadow: 0 5px 15px rgba(22, 160, 133, 0.3); margin-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 25px; text-align: left; }
         th, td { padding: 12px; border-bottom: 1px solid #ddd; }
         th { background-color: #f8f9fa; color: #7f8c8d; }
@@ -31,14 +31,14 @@
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
     
-    <!-- Kotak Monitor Data Otomatis Nyata dari Hardware -->
+    <!-- Kotak Sinkronisasi Data (Tetap Dipertahankan) -->
     <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi jumlah pakan otomatis...</div>
     
     <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
 
     <div style="margin-top: 30px;">
         <h3 style="text-align: left;">
-            📜 Riwayat Aktivitas Pakan (Live Terbuka)
+            📜 Riwayat Aktivitas Pakan
             <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Riwayat</button>
         </h3>
         <table>
@@ -63,6 +63,7 @@
     const tabelHistori = document.getElementById("tabel-histori");
 
     let listHistori = [];
+    let lastOtomatisCount = -1; // Menyimpan hitungan pakan otomatis terakhir untuk deteksi perubahan
 
     function muatHistoriDariMemori() {
         const dataLokal = localStorage.getItem("riwayat_pakan_ikan");
@@ -70,12 +71,23 @@
             listHistori = JSON.parse(dataLokal);
             tampilkanKeTabel();
         } else {
-            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan live terdeteksi...</td></tr>';
+            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>';
+        }
+        
+        // Muat juga status counter terakhir dari local storage jika ada
+        const savedCount = localStorage.getItem("total_otomatis_counter");
+        if(savedCount) {
+            lastOtomatisCount = parseInt(savedCount);
+            counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${savedCount} Kali`;
         }
     }
 
     function tampilkanKeTabel() {
         tabelHistori.innerHTML = "";
+        if (listHistori.length === 0) {
+            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>';
+            return;
+        }
         listHistori.forEach(item => {
             let badge = item.metode === "OTOMATIS" ? 
                 `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
@@ -87,7 +99,7 @@
     }
 
     function hapusSemuaHistori() {
-        if(confirm("Apakah kamu yakin ingin menghapus riwayat tabel?")) {
+        if(confirm("Apakah kamu yakin ingin menghapus semua riwayat di tabel?")) {
             listHistori = [];
             localStorage.removeItem("riwayat_pakan_ikan");
             tampilkanKeTabel();
@@ -99,7 +111,7 @@
         statusLabel.className = "status-mqtt online";
         client.subscribe("cotswoldies/pakan/status");
         
-        // 🔄 Minta data terbaru ke ESP32 sesaat setelah web terbuka
+        // Minta data terbaru ke ESP32 sesaat setelah web terbuka
         setTimeout(() => {
             client.publish("cotswoldies/pakan/kontrol", "MINTA_DATA");
         }, 1000);
@@ -113,7 +125,6 @@
     function beriPakanPaksa() {
         if (client.connected) {
             client.publish("cotswoldies/pakan/kontrol", 'MAKAN_PAKSA');
-            alert("Sinyal MQTT terkirim!");
         } else {
             alert("Gagal! Koneksi terputus.");
         }
@@ -122,24 +133,45 @@
     client.on('message', (topic, message) => {
         if (topic === "cotswoldies/pakan/status") {
             const msgStr = message.toString();
+            let metodeAksi = "";
             
-            // Cek apakah pesan itu data sinkronisasi otomatis
-            if(msgStr.startsWith("SYNC_OTOMATIS:")) {
-                const jumlahOtomatis = msgStr.split(":")[1];
-                counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
-                return; // Berhenti di sini, tidak perlu dimasukkan ke tabel
-            }
-            
-            // Logika Tabel untuk pakan manual / live otomatis biasa
+            // Dapatkan waktu saat data masuk
             const waktuLokal = new Date().toLocaleString('id-ID', {
                 hour: '2-digit', minute: '2-digit', second: '2-digit',
                 day: 'numeric', month: 'short', year: 'numeric'
             });
 
-            listHistori.unshift({ waktu: waktuLokal, metode: msgStr });
-            if (listHistori.length > 50) listHistori.pop();
-            localStorage.setItem("riwayat_pakan_ikan", JSON.stringify(listHistori));
-            tampilkanKeTabel();
+            // Kasus 1: Menerima data sinkronisasi otomatis dari alat
+            if(msgStr.startsWith("SYNC_OTOMATIS:")) {
+                const jumlahOtomatis = parseInt(msgStr.split(":")[1]);
+                counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
+                localStorage.setItem("total_otomatis_counter", jumlahOtomatis);
+
+                // Cek jika angkanya bertambah (artinya ada jadwal pakan otomatis baru yang terjadi)
+                if (lastOtomatisCount !== -1 && jumlahOtomatis > lastOtomatisCount) {
+                    metodeAksi = "OTOMATIS";
+                    lastOtomatisCount = jumlahOtomatis;
+                } else {
+                    lastOtomatisCount = jumlahOtomatis;
+                    return; // Jika angkanya sama (baru buka web pertama kali), jangan duplikat tabel
+                }
+            } 
+            // Kasus 2: Data manual dari pencetan tombol web
+            else if(msgStr === "MANUAL") {
+                metodeAksi = "MANUAL";
+            }
+            // Kasus 3: Jika kodingan lama wokwi kalian mengirim teks "OTOMATIS" secara live
+            else if(msgStr === "OTOMATIS") {
+                metodeAksi = "OTOMATIS";
+            }
+
+            // Masukkan data hasil filter ke tabel riwayat bawah
+            if (metodeAksi !== "") {
+                listHistori.unshift({ waktu: waktuLokal, metode: metodeAksi });
+                if (listHistori.length > 50) listHistori.pop();
+                localStorage.setItem("riwayat_pakan_ikan", JSON.stringify(listHistori));
+                tampilkanKeTabel();
+            }
         }
     });
 
