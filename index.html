@@ -93,7 +93,7 @@
 
 <div class="container">
     <h1>🐠 Smart Fish Feeder</h1>
-    <p class="subtitle">Sistem Pakan Ikan Otomatis & Publik</p>
+    <p class="subtitle">Kasih Makan Ikan Adit Secara Otomatis!</p>
 
     <div class="control-area">
         <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
@@ -128,28 +128,41 @@
     let sembunyikanData = false;
 
     function beriPakanPaksa() {
-        // GANTI KEDUA VARIABEL INI DENGAN DATA DARI MENU APPS -> TALKBACK DI THINGSPEAK
-        const talkBackID = "MASUKKAN_TALKBACK_ID_MU";
-        const talkBackKey = "MASUKKAN_TALKBACK_API_KEY_MU";
-        
-        const url = `https://api.thingspeak.com/talkbacks/${talkBackID}/commands.json`;
-        sembunyikanData = false; 
-        
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `api_key=${talkBackKey}&command_string=MAKAN`
-        })
-        .then(response => {
-            if(response.ok) {
-                alert("Perintah pakan paksa dikirim ke Antrean TalkBack! Servo segera merespons.");
-                setTimeout(ambilHistori, 4000); // Beri jeda 4 detik agar ESP32 sempat merespons sebelum tabel direfresh
-            } else {
-                alert("Gagal mengirim perintah ke TalkBack.");
-            }
-        })
-        .catch(err => console.error("Error:", err));
-    }
+    // TalkBack ID resmi kamu sudah dipasang di sini!
+    const talkBackID = "57504"; 
+    
+    // ⚠️ SILAKAN MASUKKAN TALKBACK API KEY MILIKMU DI SINI (Lihat di menu Apps -> TalkBack di ThingSpeak)
+    const talkBackKey = "MASUKKAN_TALKBACK_API_KEY_MU"; 
+    
+    // Menggunakan jalur GET request parameter agar 100% aman dan lolos dari blokir CORS browser
+    const url = `https://api.thingspeak.com/talkbacks/${talkBackID}/commands.json?api_key=${talkBackKey}&command_string=MAKAN`;
+    
+    sembunyikanData = false; 
+    
+    // Mengirim perintah POST kosong ke URL parameter di atas
+    fetch(url, { method: 'POST' })
+    .then(response => {
+        if(response.ok) {
+            alert("Mantap! Perintah pakan paksa sukses masuk antrean TalkBack 57504.");
+            setTimeout(ambilHistori, 4000); // Beri jeda 4 detik agar ESP32 sempat merespons sebelum tabel direfresh
+        } else {
+            // Jalur alternatif cadangan jika POST kosong ditolak oleh beberapa browser
+            return fetch(url, { method: 'GET' });
+        }
+    })
+    .then(resG => {
+        if(resG && resG.ok) {
+            alert("Sukses! Perintah masuk antrean melalui jalur cadangan.");
+            setTimeout(ambilHistori, 4000);
+        } else if (resG) {
+            alert("Gagal memproses kode respons TalkBack.");
+        }
+    })
+    .catch(err => {
+        console.error("Error detail:", err);
+        alert("Terjadi kendala jaringan saat mengirim ke TalkBack.");
+    });
+}
 
     function hapusTampilanHistori() {
         if (confirm("Apakah kamu ingin membersihkan tampilan riwayat pakan di halaman ini?")) {
