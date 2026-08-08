@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Fish Feeder - True Real-time Sync</title>
+    <title>Smart Fish Feeder - Fixed Real-time Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f4f8; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -25,16 +25,16 @@
 <body>
 
 <div class="container">
-    <h1>Smart Fish Feeder</h1>
+    <h1>🐠 Smart Fish Feeder</h1>
     <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + True Real-time Sync</p>
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
     <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi data dari alat...</div>
     
-    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Sekarang!</button>
+    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
 
     <div style="margin-top: 30px;">
-        <h3 style="text-align: left;">Riwayat Aktivitas Terpusat</h3>
+        <h3 style="text-align: left;">📜 Riwayat Aktivitas Terpusat (Real-time)</h3>
         <table>
             <thead>
                 <tr>
@@ -62,10 +62,9 @@
         const tgl = sekarang.getDate();
         const bln = sekarang.toLocaleString('id-ID', { month: 'short' });
         const jam = sekarang.getHours().toString().padStart(2, '0');
-        const min = sekarang.getMinutes().toString().padStart(2, '0');
+        const min = chassis = sekarang.getMinutes().toString().padStart(2, '0');
         const sec = sekarang.getSeconds().toString().padStart(2, '0');
         
-        // Format bersih tanpa koma: "8 Agu - 22:45:10 WIB"
         return `${tgl} ${bln} - ${jam}:${min}:${sec} WIB`;
     }
 
@@ -87,7 +86,8 @@
     function beriPakanPaksa() {
         if (client.connected) {
             const waktuKlik = dapatkanWaktuSekarang();
-            client.publish("cotswoldies/pakan/kontrol", 'MAKAN_PAKSA:' + waktuKlik);
+            // Mengirim perintah dipisah tanda Tilde (~) agar aman dari jam titik dua
+            client.publish("cotswoldies/pakan/kontrol", 'MAKAN_PAKSA~' + waktuKlik); 
         } else {
             alert("Gagal! Koneksi terputus.");
         }
@@ -97,13 +97,13 @@
         if (topic === "cotswoldies/pakan/status") {
             const msgStr = message.toString();
             
-            if(msgStr.startsWith("SYNC_OTOMATIS:")) {
-                const jumlahOtomatis = msgStr.split(":")[1];
-                counterLabel.innerText = `Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
+            if(msgStr.startsWith("SYNC_OTOMATIS~")) {
+                const jumlahOtomatis = msgStr.split("~")[1];
+                counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
             } 
             
-            else if(msgStr.startsWith("LIST_HISTORI:")) {
-                const isiData = msgStr.split(":")[1];
+            else if(msgStr.startsWith("LIST_HISTORI~")) {
+                const isiData = msgStr.split("~")[1];
                 tabelHistori.innerHTML = "";
                 
                 if(!isiData || isiData.trim() === "") {
@@ -111,8 +111,8 @@
                     return;
                 }
                 
-                // 🛠️ SEKARANG DI-SPLIT MENGGUNAKAN TITIK KOMA ( ; )
-                const arrayHistori = isiData.split(";");
+                // Pisah data per kejadian menggunakan karakter ^
+                const arrayHistori = isiData.split("^");
                 
                 for(let i = arrayHistori.length - 1; i >= 0; i--) {
                     if(!arrayHistori[i]) continue;
