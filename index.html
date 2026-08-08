@@ -73,9 +73,9 @@
         statusLabel.className = "status-mqtt online";
         client.subscribe("cotswoldies/pakan/status");
         
-        setTimeout(() => {
-            client.publish("cotswoldies/pakan/kontrol", "MINTA_DATA");
-        }, 1000);
+        // Meminta data secara berkala saat baru terkoneksi untuk memastikan sinkronisasi ulang
+        setTimeout(() => { client.publish("cotswoldies/pakan/kontrol", "MINTA_DATA"); }, 500);
+        setTimeout(() => { client.publish("cotswoldies/pakan/kontrol", "MINTA_DATA"); }, 1500);
     });
 
     client.on('error', (err) => {
