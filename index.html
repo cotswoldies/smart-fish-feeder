@@ -127,39 +127,23 @@
 
     let sembunyikanData = false;
 
-    function beriPakanPaksa() {
-    // TalkBack ID resmi kamu sudah dipasang di sini!
-    const talkBackID = "57504"; 
-    const talkBackKey = "DL0M6SKO1Z65P72B"; 
+   function beriPakanPaksa() {
+    // API Key tulis channel utama kamu yang kemarin
+    const writeKey = "RTYXWVPIXN2SUL60"; 
     
-    // Menggunakan jalur GET request parameter agar 100% aman dan lolos dari blokir CORS browser
-    const url = `https://api.thingspeak.com/talkbacks/${talkBackID}/commands.json?api_key=${talkBackKey}&command_string=MAKAN`;
+    // Trik menembak API ThingSpeak menggunakan Image Object agar kebal CORS
+    const url = `https://api.thingspeak.com/update?api_key=${writeKey}&field2=1`;
     
     sembunyikanData = false; 
     
-    // Mengirim perintah POST kosong ke URL parameter di atas
-    fetch(url, { method: 'POST' })
-    .then(response => {
-        if(response.ok) {
-            alert("Mantap! Perintah pakan paksa sukses masuk antrean TalkBack 57504.");
-            setTimeout(ambilHistori, 4000); // Beri jeda 4 detik agar ESP32 sempat merespons sebelum tabel direfresh
-        } else {
-            // Jalur alternatif cadangan jika POST kosong ditolak oleh beberapa browser
-            return fetch(url, { method: 'GET' });
-        }
-    })
-    .then(resG => {
-        if(resG && resG.ok) {
-            alert("Sukses! Perintah masuk antrean melalui jalur cadangan.");
-            setTimeout(ambilHistori, 4000);
-        } else if (resG) {
-            alert("Gagal memproses kode respons TalkBack.");
-        }
-    })
-    .catch(err => {
-        console.error("Error detail:", err);
-        alert("Terjadi kendala jaringan saat mengirim ke TalkBack.");
-    });
+    // Browser akan dipaksa mengirim data tanpa bisa memblokirnya
+    const img = new Image();
+    img.src = url;
+    
+    alert("Sukses! Sinyal pakan paksa dikirim ke Cloud. Servo akan merespons dalam 5 detik.");
+    
+    // Refresh tabel histori setelah 5 detik agar tercatat
+    setTimeout(ambilHistori, 5000); 
 }
 
     function hapusTampilanHistori() {
