@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Fish Feeder - Live MQTT Dashboard</title>
+    <title>Smart Fish Feeder - Multi-Device Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f4f8; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -20,35 +20,30 @@
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .badge-otomatis { background-color: #d5f5e3; color: #1e8449; }
         .badge-manual { background-color: #fdebd0; color: #b9770e; }
-        .btn-clear { background-color: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; float: right; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🐠 Smart Fish Feeder</h1>
-    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Kasih Pakan Ikan Otomatis Atau Dari Jarak Jauh</p>
+    <h1>Smart Fish Feeder</h1>
+    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Kasih Pakan Ikan Otomatis dan Dari Jarak Jauh</p>
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
-    
-    <!-- Kotak Sinkronisasi Data (Tetap Dipertahankan) -->
-    <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi jumlah pakan otomatis...</div>
+    <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi data dari alat...</div>
     
     <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Sekarang!</button>
 
     <div style="margin-top: 30px;">
-        <h3 style="text-align: left;">
-            Riwayat Aktivitas Pakan
-            <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Riwayat</button>
-        </h3>
+        <h3 style="text-align: left;">Riwayat Aktivitas Terpusat (Ter-sinkronisasi)</h3>
         <table>
             <thead>
                 <tr>
-                    <th>Waktu Real-time</th>
+                    <th>Urutan Kejadian</th>
                     <th>Metode Pemberian</th>
                 </tr>
             </thead>
             <tbody id="tabel-histori">
+                <tr><td colspan="2" style="text-align:center; color:#95a5a6;">Memuat riwayat dari mesin ESP32...</td></tr>
             </tbody>
         </table>
     </div>
@@ -62,56 +57,12 @@
     const counterLabel = document.getElementById("counter-label");
     const tabelHistori = document.getElementById("tabel-histori");
 
-    let listHistori = [];
-    let lastOtomatisCount = -1; // Menyimpan hitungan pakan otomatis terakhir untuk deteksi perubahan
-
-    function muatHistoriDariMemori() {
-        const dataLokal = localStorage.getItem("riwayat_pakan_ikan");
-        if (dataLokal) {
-            listHistori = JSON.parse(dataLokal);
-            tampilkanKeTabel();
-        } else {
-            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>';
-        }
-        
-        // Muat juga status counter terakhir dari local storage jika ada
-        const savedCount = localStorage.getItem("total_otomatis_counter");
-        if(savedCount) {
-            lastOtomatisCount = parseInt(savedCount);
-            counterLabel.innerText = `Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${savedCount} Kali`;
-        }
-    }
-
-    function tampilkanKeTabel() {
-        tabelHistori.innerHTML = "";
-        if (listHistori.length === 0) {
-            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>';
-            return;
-        }
-        listHistori.forEach(item => {
-            let badge = item.metode === "OTOMATIS" ? 
-                `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
-                `<span class="badge badge-manual">MANUAL (Tombol Web)</span>`;
-            
-            const baris = `<tr><td>${item.waktu} WIB</td><td>${badge}</td></tr>`;
-            tabelHistori.innerHTML += baris;
-        });
-    }
-
-    function hapusSemuaHistori() {
-        if(confirm("Apakah kamu yakin ingin menghapus semua riwayat di tabel?")) {
-            listHistori = [];
-            localStorage.removeItem("riwayat_pakan_ikan");
-            tampilkanKeTabel();
-        }
-    }
-
     client.on('connect', () => {
         statusLabel.innerText = "Koneksi MQTT: ONLINE";
         statusLabel.className = "status-mqtt online";
         client.subscribe("cotswoldies/pakan/status");
         
-        // Minta data terbaru ke ESP32 sesaat setelah web terbuka
+        // Pancing ESP32 untuk kirim data terpusat saat halaman baru dimuat
         setTimeout(() => {
             client.publish("cotswoldies/pakan/kontrol", "MINTA_DATA");
         }, 1000);
@@ -133,49 +84,40 @@
     client.on('message', (topic, message) => {
         if (topic === "cotswoldies/pakan/status") {
             const msgStr = message.toString();
-            let metodeAksi = "";
             
-            // Dapatkan waktu saat data masuk
-            const waktuLokal = new Date().toLocaleString('id-ID', {
-                hour: '2-digit', minute: '2-digit', second: '2-digit',
-                day: 'numeric', month: 'short', year: 'numeric'
-            });
-
-            // Kasus 1: Menerima data sinkronisasi otomatis dari alat
+            // 📊 Sinkronisasi Kotak Angka Total
             if(msgStr.startsWith("SYNC_OTOMATIS:")) {
-                const jumlahOtomatis = parseInt(msgStr.split(":")[1]);
+                const jumlahOtomatis = msgStr.split(":")[1];
                 counterLabel.innerText = `Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
-                localStorage.setItem("total_otomatis_counter", jumlahOtomatis);
-
-                // Cek jika angkanya bertambah (artinya ada jadwal pakan otomatis baru yang terjadi)
-                if (lastOtomatisCount !== -1 && jumlahOtomatis > lastOtomatisCount) {
-                    metodeAksi = "OTOMATIS";
-                    lastOtomatisCount = jumlahOtomatis;
-                } else {
-                    lastOtomatisCount = jumlahOtomatis;
-                    return; // Jika angkanya sama (baru buka web pertama kali), jangan duplikat tabel
-                }
             } 
-            // Kasus 2: Data manual dari pencetan tombol web
-            else if(msgStr === "MANUAL") {
-                metodeAksi = "MANUAL";
-            }
-            // Kasus 3: Jika kodingan lama wokwi kalian mengirim teks "OTOMATIS" secara live
-            else if(msgStr === "OTOMATIS") {
-                metodeAksi = "OTOMATIS";
-            }
-
-            // Masukkan data hasil filter ke tabel riwayat bawah
-            if (metodeAksi !== "") {
-                listHistori.unshift({ waktu: waktuLokal, metode: metodeAksi });
-                if (listHistori.length > 50) listHistori.pop();
-                localStorage.setItem("riwayat_pakan_ikan", JSON.stringify(listHistori));
-                tampilkanKeTabel();
+            
+            // 📜 Sinkronisasi Tabel Riwayat dari Memori Alat
+            else if(msgStr.startsWith("LIST_HISTORI:")) {
+                const isiData = msgStr.split(":")[1];
+                tabelHistori.innerHTML = "";
+                
+                if(!isiData || isiData.trim() === "") {
+                    tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada riwayat aktivitas di mesin...</td></tr>';
+                    return;
+                }
+                
+                const arrayHistori = isiData.split(",");
+                
+                // Looping terbalik agar aktivitas paling baru muncul di urutan teratas
+                let counterUrutan = arrayHistori.length;
+                for(let i = arrayHistori.length - 1; i >= 0; i--) {
+                    let tipe = arrayHistori[i];
+                    let badge = tipe === "OTOMATIS" ? 
+                        `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
+                        `<span class="badge badge-manual">MANUAL (Tombol Web)</span>`;
+                    
+                    const baris = `<tr><td>Aktivitas Ke-${counterUrutan}</td><td>${badge}</td></tr>`;
+                    tabelHistori.innerHTML += baris;
+                    counterUrutan--;
+                }
             }
         }
     });
-
-    muatHistoriDariMemori();
 </script>
 </body>
 </html>
