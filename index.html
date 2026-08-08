@@ -3,88 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Fish Feeder Dashboard</title>
+    <title>Smart Fish Feeder Local Dashboard</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f4f8;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            max-width: 600px;
-            width: 100%;
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-            text-align: center;
-        }
-        h1 { color: #2c3e50; margin-bottom: 5px; }
-        p.subtitle { color: #7f8c8d; margin-bottom: 30px; }
-        
-        .control-area {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            align-items: center;
-        }
-        .btn-pakan {
-            background: linear-gradient(135deg, #1abc9c, #16a085);
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 5px 15px rgba(22, 160, 133, 0.3);
-            transition: all 0.3s ease;
-            width: 80%;
-        }
-        .btn-pakan:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(22, 160, 133, 0.4);
-        }
-        .btn-hapus {
-            background: none;
-            border: 2px solid #e74c3c;
-            color: #e74c3c;
-            padding: 8px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .btn-hapus:hover {
-            background-color: #e74c3c;
-            color: white;
-        }
-        
-        .history-section { margin-top: 40px; text-align: left; }
-        .history-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #ecf0f1;
-            padding-bottom: 10px;
-        }
-        h3 { color: #34495e; margin: 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background-color: #f8f9fa; color: #7f8c8d; font-size: 14px; }
-        td { font-size: 15px; }
-        .badge {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f4f8; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { max-width: 600px; width: 100%; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
+        h1 { color: #2c3e50; }
+        .btn-pakan { background: linear-gradient(135deg, #1abc9c, #16a085); color: white; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 50px; cursor: pointer; width: 80%; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left; }
+        th, td { padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; color: #7f8c8d; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .badge-otomatis { background-color: #d5f5e3; color: #1e8449; }
         .badge-manual { background-color: #fdebd0; color: #b9770e; }
     </style>
@@ -93,123 +21,59 @@
 
 <div class="container">
     <h1>🐠 Smart Fish Feeder</h1>
-    <p class="subtitle">Sistem Pakan Ikan Otomatis & Publik</p>
+    <p style="color: #7f8c8d;">Sistem Pakan Mandiri (Tanpa Cloud Cloud Club)</p>
 
-    <div class="control-area">
-        <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
-    </div>
+    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
 
-    <div class="history-section">
-        <div class="history-header">
-            <h3>📜 Riwayat Pemberian Pakan</h3>
-            <button class="btn-hapus" onclick="hapusTampilanHistori()">Hapus Histori</button>
-        </div>
+    <div style="margin-top: 30px;">
+        <h3>📜 Riwayat Waktu Pemberian Pakan</h3>
         <table>
             <thead>
                 <tr>
-                    <th>Waktu (Tanggal & Jam)</th>
+                    <th>Waktu Kejadian (RTC Wokwi)</th>
                     <th>Metode</th>
                 </tr>
             </thead>
             <tbody id="tabel-histori">
-                <tr>
-                    <td colspan="2" style="text-align:center; color:#95a5a6;">Memuat data...</td>
-                </tr>
+                <tr><td colspan="2" style="text-align:center; color:#95a5a6;">Memuat data dari ESP32...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // Token Telegram Bot resmi milikmu sudah terpasang
-    const BOT_TOKEN = "8806802002:AAFhCqBQ9uAWrN57C0vO_18e2T5BFISE3uo"; 
-    
-    // Konfigurasi ThingSpeak Resmi untuk membaca histori pencatatan
-    const channelID = "3448220"; 
-    const readKey   = "DL0M6SKO1Z65P72B"; 
-
-    let sembunyikanData = false;
+    // ⚠️ NYALAKAN WOKWI TERLEBIH DAHULU, LIHAT IP ADDRESS DI SERIAL MONITOR, LALU PASTE DI SINI!
+    // Contoh format: "http://10.0.0.2" (Tergantung IP yang didapat dari simulator Wokwi)
+    const ESP32_IP = "MASUKKAN_IP_ADDRESS_WOKWI_KAMU"; 
 
     function beriPakanPaksa() {
-        sembunyikanData = false; 
-        
-        // Website mengirim instruksi ke Telegram Bot API
-        const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-        
-        // Kirim perintah rahasia /makan ke broker Telegram (chat_id diisi default formal)
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: 1111,
-                text: "/makan"
-            })
-        })
+        fetch(`${ESP32_IP}/paksa`)
         .then(() => {
-            alert("Instruksi Sukses! Sinyal kilat terkirim ke Telegram Server. Servo akan berputar.");
-            // Beri jeda 6 detik agar ESP32 berputar & sempat kirim log balik ke ThingSpeak
-            setTimeout(ambilHistori, 6000); 
+            alert("Sukses! Perintah diterima langsung oleh ESP32.");
+            setTimeout(ambilHistori, 1000);
         })
-        .catch(err => {
-            console.error(err);
-            alert("Kendala jaringan saat mengirim ke Telegram.");
-        });
-    }
-
-    function hapusTampilanHistori() {
-        if (confirm("Apakah kamu ingin membersihkan tampilan riwayat pakan di halaman ini?")) {
-            sembunyikanData = true;
-            document.getElementById("tabel-histori").innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Riwayat dikosongkan.</td></tr>';
-        }
+        .catch(() => alert("Gagal konek ke ESP32. Pastikan Wokwi sudah di-Play dan IP-nya benar!"));
     }
 
     function ambilHistori() {
-        if (sembunyikanData) return; 
-
-        const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${readKey}&results=10`;
-
-        fetch(url)
+        fetch(`${ESP32_IP}/histori`)
         .then(res => res.json())
         .then(data => {
-            const feeds = data.feeds;
             const tabel = document.getElementById("tabel-histori");
-            tabel.innerHTML = ""; 
-
-            feeds.reverse().forEach(feed => {
-                if (feed.field1 === null && feed.field2 === null) return;
-
-                const opsiWaktu = { 
-                    year: 'numeric', month: 'long', day: 'numeric',
-                    hour: '2-digit', minute: '2-digit', second: '2-digit'
-                };
-                const waktuLokal = new Date(feed.created_at).toLocaleString('id-ID', opsiWaktu);
-
-                let metode = "";
-                if (feed.field1 === "1") {
-                    metode = '<span class="badge badge-otomatis">OTOMATIS</span>';
-                } else if (feed.field2 === "1") {
-                    metode = '<span class="badge badge-manual">MANUAL (Paksa)</span>';
-                } else {
-                    return; 
-                }
-
-                const baris = `<tr>
-                    <td>${waktuLokal} WIB</td>
-                    <td>${metode}</td>
-                </tr>`;
-                tabel.innerHTML += baris;
+            tabel.innerHTML = "";
+            data.forEach(log => {
+                let badge = log.metode === "OTOMATIS" ? 
+                    `<span class="badge badge-otomatis">OTOMATIS</span>` : 
+                    `<span class="badge badge-manual">MANUAL</span>`;
+                tabel.innerHTML += `<tr><td>${log.waktu} WIB</td><td>${badge}</td></tr>`;
             });
-            
-            if(tabel.innerHTML === "") {
-                tabel.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada riwayat pakan.</td></tr>';
-            }
+            if(data.length === 0) tabel.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada data pakan.</td></tr>';
         })
-        .catch(err => console.error("Gagal memuat histori:", err));
+        .catch(err => console.log("ESP32 belum siap/offline."));
     }
 
-    ambilHistori();
-    setInterval(ambilHistori, 15000); 
+    // Ambil histori tiap 4 detik sekali
+    setInterval(ambilHistori, 4000);
 </script>
-
 </body>
 </html>
