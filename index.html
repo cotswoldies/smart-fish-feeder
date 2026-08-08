@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Fish Feeder - Live MQTT Dashboard</title>
-    <!-- Memanggil Library MQTT Resmi via CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f4f8; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -13,6 +12,7 @@
         .status-mqtt { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 5px 10px; border-radius: 4px; display: inline-block; }
         .online { background-color: #d5f5e3; color: #1e8449; }
         .offline { background-color: #fadbd8; color: #78281f; }
+        .counter-box { background-color: #ebf5fb; color: #2980b9; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; margin-bottom: 20px; border: 1px solid #a9cce3;}
         .btn-pakan { background: linear-gradient(135deg, #1abc9c, #16a085); color: white; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 50px; cursor: pointer; width: 80%; box-shadow: 0 5px 15px rgba(22, 160, 133, 0.3); }
         table { width: 100%; border-collapse: collapse; margin-top: 25px; text-align: left; }
         th, td { padding: 12px; border-bottom: 1px solid #ddd; }
@@ -26,16 +26,19 @@
 <body>
 
 <div class="container">
-    <h1>Smart Fish Feeder</h1>
-    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT Kilat + Penyimpanan Browser Lokal</p>
+    <h1>🐠 Smart Fish Feeder</h1>
+    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + Auto Synchronization</p>
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
-    <br>
-    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Sekarang!</button>
+    
+    <!-- Kotak Monitor Data Otomatis Nyata dari Hardware -->
+    <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi jumlah pakan otomatis...</div>
+    
+    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
 
     <div style="margin-top: 30px;">
         <h3 style="text-align: left;">
-            Riwayat Aktivitas Pakan
+            📜 Riwayat Aktivitas Pakan (Live Terbuka)
             <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Riwayat</button>
         </h3>
         <table>
@@ -46,34 +49,31 @@
                 </tr>
             </thead>
             <tbody id="tabel-histori">
-                <!-- Diisi otomatis via JavaScript -->
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // Broker HiveMQ publik via Jalur Aman WebSocket
     const broker = "wss://broker.hivemq.com:8884/mqtt";
     const client = mqtt.connect(broker);
 
     const statusLabel = document.getElementById("status-label");
+    const counterLabel = document.getElementById("counter-label");
     const tabelHistori = document.getElementById("tabel-histori");
 
     let listHistori = [];
 
-    // 1. Fungsi memuat riwayat lama dari memori browser saat halaman dibuka/direfresh
     function muatHistoriDariMemori() {
         const dataLokal = localStorage.getItem("riwayat_pakan_ikan");
         if (dataLokal) {
             listHistori = JSON.parse(dataLokal);
             tampilkanKeTabel();
         } else {
-            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>';
+            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan live terdeteksi...</td></tr>';
         }
     }
 
-    // 2. Fungsi menggambar ulang isi tabel berdasarkan data di memori
     function tampilkanKeTabel() {
         tabelHistori.innerHTML = "";
         listHistori.forEach(item => {
@@ -86,20 +86,23 @@
         });
     }
 
-    // 3. Fungsi reset/hapus riwayat kalau tabelnya kepenuhan
     function hapusSemuaHistori() {
-        if(confirm("Apakah kamu yakin ingin menghapus semua riwayat di browser ini?")) {
+        if(confirm("Apakah kamu yakin ingin menghapus riwayat tabel?")) {
             listHistori = [];
             localStorage.removeItem("riwayat_pakan_ikan");
-            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>';
+            tampilkanKeTabel();
         }
     }
 
     client.on('connect', () => {
         statusLabel.innerText = "Koneksi MQTT: ONLINE";
         statusLabel.className = "status-mqtt online";
-        // Daftarkan ke topik laporan balik dari ESP32
         client.subscribe("cotswoldies/pakan/status");
+        
+        // 🔄 Minta data terbaru ke ESP32 sesaat setelah web terbuka
+        setTimeout(() => {
+            client.publish("cotswoldies/pakan/kontrol", "MINTA_DATA");
+        }, 1000);
     });
 
     client.on('error', (err) => {
@@ -109,38 +112,37 @@
 
     function beriPakanPaksa() {
         if (client.connected) {
-            // Tembak perintah ke ESP32
             client.publish("cotswoldies/pakan/kontrol", 'MAKAN_PAKSA');
-            alert("Yakin mau kasih pakan sekarang?");
+            alert("Sinyal MQTT terkirim!");
         } else {
-            alert("Gagal! Koneksi ke MQTT Broker terputus.");
+            alert("Gagal! Koneksi terputus.");
         }
     }
 
-    // 4. Menerima laporan sukses kiriman ESP32
     client.on('message', (topic, message) => {
         if (topic === "cotswoldies/pakan/status") {
-            const metodeData = message.toString(); // Isinya 'MANUAL' atau 'OTOMATIS'
+            const msgStr = message.toString();
             
+            // Cek apakah pesan itu data sinkronisasi otomatis
+            if(msgStr.startsWith("SYNC_OTOMATIS:")) {
+                const jumlahOtomatis = msgStr.split(":")[1];
+                counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
+                return; // Berhenti di sini, tidak perlu dimasukkan ke tabel
+            }
+            
+            // Logika Tabel untuk pakan manual / live otomatis biasa
             const waktuLokal = new Date().toLocaleString('id-ID', {
                 hour: '2-digit', minute: '2-digit', second: '2-digit',
                 day: 'numeric', month: 'short', year: 'numeric'
             });
 
-            // Masukkan log baru ke barisan paling atas
-            listHistori.unshift({ waktu: waktuLokal, metode: metodeData });
-
-            // Batasi maksimal 50 riwayat aja biar browser ga lemot
+            listHistori.unshift({ waktu: waktuLokal, metode: msgStr });
             if (listHistori.length > 50) listHistori.pop();
-
-            // 💾 KUNCI UTAMA: Simpan permanen ke storage browser lokal!
             localStorage.setItem("riwayat_pakan_ikan", JSON.stringify(listHistori));
-            
             tampilkanKeTabel();
         }
     });
 
-    // Jalankan pengecekan memori saat web pertama kali di-load
     muatHistoriDariMemori();
 </script>
 </body>
