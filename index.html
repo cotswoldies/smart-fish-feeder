@@ -111,7 +111,7 @@
         if (client.connected) {
             // Tembak perintah ke ESP32
             client.publish("cotswoldies/pakan/kontrol", 'MAKAN_PAKSA');
-            alert("Sinyal MQTT terkirim! Servo akan segera berputar.");
+            alert("Yakin mau kasih pakan sekarang?");
         } else {
             alert("Gagal! Koneksi ke MQTT Broker terputus.");
         }
