@@ -26,17 +26,17 @@
 <body>
 
 <div class="container">
-    <h1>🐠 Smart Fish Feeder</h1>
+    <h1>Smart Fish Feeder</h1>
     <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + Full Multi-Device Sync</p>
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
-    <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi data dari alat...</div>
+    <div id="counter-label" class="counter-box">Menunggu sinkronisasi data dari alat...</div>
     
     <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
 
     <div style="margin-top: 30px;">
         <h3 style="text-align: left;">
-            📜 Riwayat Aktivitas Terpusat
+            Riwayat Aktivitas Terpusat
             <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Tampilan</button>
         </h3>
         <table>
@@ -148,7 +148,7 @@
             
             if(msgStr.startsWith("SYNC_OTOMATIS:")) {
                 const jumlahOtomatis = msgStr.split(":")[1];
-                counterLabel.innerText = `📊 Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
+                counterLabel.innerText = `Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
             } 
             
             else if(msgStr.startsWith("LIST_HISTORI:")) {
