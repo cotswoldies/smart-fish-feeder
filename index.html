@@ -32,12 +32,12 @@
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
     <div id="counter-label" class="counter-box">Menunggu sinkronisasi data dari alat...</div>
     
-    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
+    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Sekarang!</button>
 
     <div style="margin-top: 30px;">
         <h3 style="text-align: left;">
             Riwayat Aktivitas Terpusat
-            <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Tampilan</button>
+            <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Histori</button>
         </h3>
         <table>
             <thead>
@@ -47,7 +47,7 @@
                 </tr>
             </thead>
             <tbody id="tabel-histori">
-                <tr><td colspan="2" style="text-align:center; color:#95a5a6;">Memuat riwayat dari mesin ESP32...</td></tr>
+                <tr><td colspan="2" style="text-align:center; color:#95a5a6;">Memuat riwayat dari ESP32...</td></tr>
             </tbody>
         </table>
     </div>
@@ -99,7 +99,7 @@
             
             // Jika browser sudah punya catatan waktu untuk indeks ini, pakai yang lama. 
             // Jika belum ada (karena device baru dibuka), buatkan waktu saat ini.
-            let waktuCetak = riwayatWaktuLokal[i] ? riwayatWaktuLokal[i] : waktuSekarang + " (Synced)";
+            let waktuCetak = riwayatWaktuLokal[i] ? riwayatWaktuLokal[i] : waktuSekarang;
             penandaWaktuBaru.push(waktuCetak);
         }
 
