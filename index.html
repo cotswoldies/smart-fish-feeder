@@ -27,7 +27,6 @@
         h1 { color: #2c3e50; margin-bottom: 5px; }
         p.subtitle { color: #7f8c8d; margin-bottom: 30px; }
         
-        /* Area Tombol Kontrol */
         .control-area {
             display: flex;
             flex-direction: column;
@@ -67,7 +66,6 @@
             color: white;
         }
         
-        /* Desain Tabel Histori */
         .history-section { margin-top: 40px; text-align: left; }
         .history-header {
             display: flex;
@@ -95,18 +93,15 @@
 
 <div class="container">
     <h1>🐠 Smart Fish Feeder</h1>
-    <p class="subtitle">Kasih Pakan Ikan Akuarium Punya Adit!</p>
+    <p class="subtitle">Sistem Pakan Ikan Otomatis & Publik</p>
 
     <div class="control-area">
-        <!-- Tombol Pakan Paksa -->
         <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
     </div>
 
-    <!-- Bagian Histori Waktu -->
     <div class="history-section">
         <div class="history-header">
             <h3>📜 Riwayat Pemberian Pakan</h3>
-            <!-- Tombol Hapus Tampilan Histori -->
             <button class="btn-hapus" onclick="hapusTampilanHistori()">Hapus Histori</button>
         </div>
         <table>
@@ -126,24 +121,31 @@
 </div>
 
 <script>
-    // Konfigurasi API ThingSpeak milikmu
+    // API Keys Resmi Kamu Sudah Dipasang di Sini
     const channelID = "3448220"; 
-    const writeKey = "RTYXWVPIXN2SUL60"; 
-    const readKey  = "MASUKKAN_READ_API_KEY_THINGSPEAK_MU"; // <--- GANTI DENGAN READ KEY DI WEB THINGSPEAK
+    const readKey  = "DL0M6SKO1Z65P72B"; 
 
     let sembunyikanData = false;
 
     function beriPakanPaksa() {
-        const url = `https://api.thingspeak.com/update?api_key=${writeKey}&field2=1`;
-        sembunyikanData = false; // Tampilkan kembali tabel jika tombol ditekan
+        // GANTI KEDUA VARIABEL INI DENGAN DATA DARI MENU APPS -> TALKBACK DI THINGSPEAK
+        const talkBackID = "MASUKKAN_TALKBACK_ID_MU";
+        const talkBackKey = "MASUKKAN_TALKBACK_API_KEY_MU";
         
-        fetch(url)
+        const url = `https://api.thingspeak.com/talkbacks/${talkBackID}/commands.json`;
+        sembunyikanData = false; 
+        
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `api_key=${talkBackKey}&command_string=MAKAN`
+        })
         .then(response => {
             if(response.ok) {
-                alert("Perintah pakan paksa dikirim! Menunggu ESP32 merespons...");
-                setTimeout(ambilHistori, 2000);
+                alert("Perintah pakan paksa dikirim ke Antrean TalkBack! Servo segera merespons.");
+                setTimeout(ambilHistori, 4000); // Beri jeda 4 detik agar ESP32 sempat merespons sebelum tabel direfresh
             } else {
-                alert("Gagal mengirim perintah.");
+                alert("Gagal mengirim perintah ke TalkBack.");
             }
         })
         .catch(err => console.error("Error:", err));
@@ -157,7 +159,7 @@
     }
 
     function ambilHistori() {
-        if (sembunyikanData) return; // Jika mode hapus aktif, abaikan auto-refresh sementara
+        if (sembunyikanData) return; 
 
         const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${readKey}&results=10`;
 
@@ -201,7 +203,7 @@
     }
 
     ambilHistori();
-    setInterval(ambilHistori, 15000); // Auto refresh tiap 15 detik
+    setInterval(ambilHistori, 15000); 
 </script>
 
 </body>
