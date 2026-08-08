@@ -29,7 +29,7 @@
     <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + True Real-time Sync</p>
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
-    <div id="counter-label" class="counter-box">🔄 Menunggu sinkronisasi data dari alat...</div>
+    <div id="counter-label" class="counter-box">Menunggu sinkronisasi data dari alat...</div>
     
     <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Sekarang!</button>
 
@@ -62,7 +62,7 @@
         const tgl = sekarang.getDate();
         const bln = sekarang.toLocaleString('id-ID', { month: 'short' });
         const jam = sekarang.getHours().toString().padStart(2, '0');
-        const min = chassis = sekarang.getMinutes().toString().padStart(2, '0');
+        const min = sekarang.getMinutes().toString().padStart(2, '0');
         const sec = sekarang.getSeconds().toString().padStart(2, '0');
         
         return `${tgl} ${bln} - ${jam}:${min}:${sec} WIB`;
@@ -86,7 +86,6 @@
     function beriPakanPaksa() {
         if (client.connected) {
             const waktuKlik = dapatkanWaktuSekarang();
-            // Mengirim perintah dipisah tanda Tilde (~) agar aman dari jam titik dua
             client.publish("cotswoldies/pakan/kontrol", 'MAKAN_PAKSA~' + waktuKlik); 
         } else {
             alert("Gagal! Koneksi terputus.");
@@ -95,14 +94,15 @@
 
     client.on('message', (topic, message) => {
         if (topic === "cotswoldies/pakan/status") {
+            // Memastikan payload dikonversi menjadi String murni
             const msgStr = message.toString();
             
-            if(msgStr.startsWith("SYNC_OTOMATIS~")) {
+            if(msgStr.includes("SYNC_OTOMATIS~")) {
                 const jumlahOtomatis = msgStr.split("~")[1];
                 counterLabel.innerText = `Total Pakan Otomatis Berhasil Di-eksekusi Alat: ${jumlahOtomatis} Kali`;
             } 
             
-            else if(msgStr.startsWith("LIST_HISTORI~")) {
+            else if(msgStr.includes("LIST_HISTORI~")) {
                 const isiData = msgStr.split("~")[1];
                 tabelHistori.innerHTML = "";
                 
@@ -111,7 +111,6 @@
                     return;
                 }
                 
-                // Pisah data per kejadian menggunakan karakter ^
                 const arrayHistori = isiData.split("^");
                 
                 for(let i = arrayHistori.length - 1; i >= 0; i--) {
