@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Fish Feeder - MQTT Dashboard</title>
-    <!-- Memanggil Library MQTT resmi untuk Browser -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f4f8; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -20,20 +19,24 @@
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .badge-otomatis { background-color: #d5f5e3; color: #1e8449; }
         .badge-manual { background-color: #fdebd0; color: #b9770e; }
+        .btn-clear { background-color: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; float: right; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>🐠 Smart Fish Feeder</h1>
-    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol Kilat MQTT Berbasis Cloud</p>
+    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + Memori Anti-Refresh</p>
     
     <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
     <br>
     <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Paksa!</button>
 
     <div style="margin-top: 30px;">
-        <h3>📜 Riwayat Aktivitas Pakan (Live)</h3>
+        <h3 style="text-align: left;">
+            📜 Riwayat Aktivitas Pakan
+            <button class="btn-clear" onclick="hapusSemuaHistori()">Hapus Riwayat</button>
+        </h3>
         <table>
             <thead>
                 <tr>
@@ -42,69 +45,106 @@
                 </tr>
             </thead>
             <tbody id="tabel-histori">
-                <tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>
+                <!-- Data bakal diisi otomatis via JavaScript -->
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // Koneksi ke Public Broker HiveMQ via WebSocket port aman (8884)
+    // ⚠️ SAMAKAN NAMA TOPIK UNIK KAMU DENGAN YANG DI WOKWI!
+    const TOPIC_PREFIX = "cotswoldies"; 
+
     const broker = "wss://broker.hivemq.com:8884/mqtt";
     const client = mqtt.connect(broker);
 
     const statusLabel = document.getElementById("status-label");
     const tabelHistori = document.getElementById("tabel-histori");
 
-    // Event saat web berhasil konek ke broker MQTT
+    // Array penampung histori pakan
+    let listHistori = [];
+
+    // 1. Fungsi memuat data lama dari memori browser saat pertama kali web dibuka
+    function muatHistoriDariMemori() {
+        const dataLokal = localStorage.getItem("riwayat_pakan_ikan");
+        if (dataLokal) {
+            listHistori = JSON.parse(dataLokal);
+            tampilkanKeTabel();
+        } else {
+            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>';
+        }
+    }
+
+    // 2. Fungsi merender isi array ke tabel HTML
+    function tampilkanKeTabel() {
+        tabelHistori.innerHTML = "";
+        listHistori.forEach(item => {
+            let badge = item.metode === "OTOMATIS" ? 
+                `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
+                `<span class="badge badge-manual">MANUAL (Tombol Web)</span>`;
+            
+            const baris = `<tr><td>${item.waktu} WIB</td><td>${badge}</td></tr>`;
+            tabelHistori.innerHTML += baris;
+        });
+    }
+
+    // 3. Fungsi menghapus riwayat kalau tabelnya kepenuhan
+    function hapusSemuaHistori() {
+        if(confirm("Apakah kamu yakin ingin menghapus semua riwayat?")) {
+            listHistori = [];
+            localStorage.removeItem("riwayat_pakan_ikan");
+            tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada aktivitas pakan terdeteksi...</td></tr>';
+        }
+    }
+
     client.on('connect', () => {
         statusLabel.innerText = "Koneksi MQTT: ONLINE (Siap Kilat)";
         statusLabel.className = "status-mqtt online";
-        
-        // Subscribe ke topik status biar web bisa dapet laporan otomatis dari ESP32
-        client.subscribe('cotswoldies/pakan/status');
+        client.subscribe(`${TOPIC_PREFIX}/pakan/status`);
     });
 
     client.on('error', (err) => {
         statusLabel.innerText = "Koneksi MQTT: GAGAL";
         statusLabel.className = "status-mqtt offline";
-        console.error(err);
     });
 
-    // Fungsi Tombol Pakan Paksa (Publish data ke ESP32)
     function beriPakanPaksa() {
         if (client.connected) {
-            client.publish('cotswoldies/pakan/kontrol', 'MAKAN_PAKSA');
+            client.publish(`${TOPIC_PREFIX}/pakan/kontrol`, 'MAKAN_PAKSA');
             alert("Sinyal MQTT terkirim! Servo akan berputar saat ini juga.");
         } else {
             alert("Gagal mengirim! Koneksi ke MQTT Broker terputus.");
         }
     }
 
-    // Mendengarkan laporan feedback balik dari ESP32
+    // 4. Menerima laporan sukses dari ESP32
     client.on('message', (topic, message) => {
-        if (topic === 'cotswoldies/pakan/status') {
-            const metode = message.toString(); // Isinya: 'OTOMATIS' atau 'MANUAL'
+        if (topic === `${TOPIC_PREFIX}/pakan/status`) {
+            const metodeData = message.toString();
             
             const waktuLokal = new Date().toLocaleString('id-ID', {
                 hour: '2-digit', minute: '2-digit', second: '2-digit',
                 day: 'numeric', month: 'short', year: 'numeric'
             });
 
-            // Hapus baris kosong pertama kali
-            if (tabelHistori.innerHTML.includes("Belum ada aktivitas")) {
-                tabelHistori.innerHTML = "";
+            // Masukkan data baru di urutan paling atas array
+            listHistori.unshift({ waktu: waktuLokal, metode: metodeData });
+
+            // Batasi memori maksimal simpan 50 riwayat aja biar browser gak lemot
+            if (listHistori.length > 50) {
+                listHistori.pop();
             }
 
-            let badge = metode === "OTOMATIS" ? 
-                `<span class="badge badge-otomatis">OTOMATIS (Jadwal)</span>` : 
-                `<span class="badge badge-manual">MANUAL (Tombol Web)</span>`;
-
-            // Masukkan data baru di baris paling atas tabel
-            const barisBaru = `<tr><td>${waktuLokal} WIB</td><td>${badge}</td></tr>`;
-            tabelHistori.innerHTML = barisBaru + tabelHistori.innerHTML;
+            // Simpan ke memori permanen browser lokal
+            localStorage.setItem("riwayat_pakan_ikan", JSON.stringify(listHistori));
+            
+            // Perbarui tabel secara live
+            tampilkanKeTabel();
         }
     });
+
+    // Jalankan pemuatan data saat web di-refresh/dibuka
+    muatHistoriDariMemori();
 </script>
 </body>
 </html>
