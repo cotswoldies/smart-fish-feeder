@@ -1,140 +1,143 @@
-#include <WiFi.h>
-#include <PubSubClient.h>
-#include <ESP32Servo.h>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Fish Feeder - Fixed Real-time Sync</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f4f8; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { max-width: 600px; width: 100%; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
+        h1 { color: #2c3e50; margin-bottom: 5px; }
+        .status-mqtt { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 5px 10px; border-radius: 4px; display: inline-block; }
+        .online { background-color: #d5f5e3; color: #1e8449; }
+        .offline { background-color: #fadbd8; color: #78281f; }
+        .counter-box { background-color: #ebf5fb; color: #2980b9; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; margin-bottom: 20px; border: 1px solid #a9cce3;}
+        .btn-pakan { background: linear-gradient(135deg, #1abc9c, #16a085); color: white; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 50px; cursor: pointer; width: 80%; box-shadow: 0 5px 15px rgba(22, 160, 133, 0.3); margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 25px; text-align: left; }
+        th, td { padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; color: #7f8c8d; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-otomatis { background-color: #d5f5e3; color: #1e8449; }
+        .badge-manual { background-color: #fdebd0; color: #b9770e; }
+    </style>
+</head>
+<body>
 
-const char* ssid = "Cloud";
-const char* pass = "10101010";
-
-const char* mqttServer = "broker.hivemq.com";
-const int mqttPort = 1883;
-
-WiFiClient espClient;
-PubSubClient client(espClient);
-Servo servoPakan;
-const int PIN_SERVO = 18;
-
-unsigned long waktuTerakhirMakanOtomatis = 0;
-const unsigned long INTERVAL_OTOMATIS = 60000; 
-
-int totalOtomatisTerjadi = 0; 
-const int MAKSIMAL_HISTORI = 10;      
-String bukuHistori[MAKSIMAL_HISTORI]; 
-int jumlahHistoriTersimpan = 0;
-
-void catatKeHistori(String tipe, String waktu) {
-  String dataLog = tipe + "|" + waktu;
-  if (jumlahHistoriTersimpan >= MAKSIMAL_HISTORI) {
-    for (int i = 0; i < MAKSIMAL_HISTORI - 1; i++) {
-      bukuHistori[i] = bukuHistori[i + 1]; 
-    }
-    bukuHistori[MAKSIMAL_HISTORI - 1] = dataLog; 
-  } else {
-    bukuHistori[jumlahHistoriTersimpan] = dataLog;
-    jumlahHistoriTersimpan++;
-  }
-}
-
-void kirimSemuaDataKeWeb() {
-  String payloadTotal = "SYNC_OTOMATIS~" + String(totalOtomatisTerjadi);
-  client.publish("cotswoldies/pakan/status", payloadTotal.c_str());
-  delay(100); 
-  
-  String payloadHistori = "LIST_HISTORI~"; 
-  for (int i = 0; i < jumlahHistoriTersimpan; i++) {
-    payloadHistori += bukuHistori[i];
-    if (i < jumlahHistoriTersimpan - 1) {
-      payloadHistori += "^"; 
-    }
-  }
-  client.publish("cotswoldies/pakan/status", payloadHistori.c_str());
-}
-
-void jalankanMotorPakan() {
-  Serial.println("[AKSI] Menggerakkan servo membuka pakan...");
-  servoPakan.write(90); 
-  delay(1500);          
-  servoPakan.write(0);  
-}
-
-void callback(char* topic, byte* payload, unsigned int length) {
-  String message = "";
-  for (int i = 0; i < length; i++) {
-    message += (char)payload[i];
-  }
-  
-  Serial.print("\n[MQTT] Pesan masuk: ");
-  Serial.println(message);
-
-  if (message.startsWith("MAKAN_PAKSA~")) { 
-    String waktuPencet = message.substring(12); 
-    jalankanMotorPakan();
-    catatKeHistori("MANUAL", waktuPencet); 
-    kirimSemuaDataKeWeb();    
-  } 
-  else if (message.startsWith("BALAS_WAKTU_AUTO~")) {
-    String waktuAuto = message.substring(17);
-    jalankanMotorPakan();
-    totalOtomatisTerjadi++; 
-    catatKeHistori("OTOMATIS", waktuAuto); 
-    kirimSemuaDataKeWeb();
-  }
-  else if (message == "MINTA_DATA") {
-    kirimSemuaDataKeWeb();    
-  }
-}
-
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("[MQTT] Menghubungkan ke Broker HiveMQ...");
-    String clientId = "ESP32Client-" + String(random(0, 9999));
+<div class="container">
+    <h1>Smart Fish Feeder</h1>
+    <p style="color: #7f8c8d; margin: 5px 0 15px 0;">Protokol MQTT + True Real-time Sync</p>
     
-    if (client.connect(clientId.c_str())) {
-      Serial.println(" TERKONEKSI!");
-      client.subscribe("cotswoldies/pakan/kontrol");
-      kirimSemuaDataKeWeb(); 
-    } else {
-      delay(5000);
-    }
-  }
-}
-
-void setup() {
-  Serial.begin(115200);
-  
-  ESP32PWM::allocateTimer(0);
-  ESP32PWM::allocateTimer(1);
-  ESP32PWM::allocateTimer(2);
-  ESP32PWM::allocateTimer(3);
-  servoPakan.setPeriodHertz(50);
-
-  servoPakan.attach(PIN_SERVO, 500, 2400);
-  servoPakan.write(0);
-
-  WiFi.begin(ssid, pass);
-  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
-  Serial.println("\n[ONLINE] Wi-Fi Terkoneksi!");
-
-  client.setServer(mqttServer, mqttPort);
-  client.setCallback(callback);
-  client.setBufferSize(1024); 
-
-  waktuTerakhirMakanOtomatis = millis();
-}
-
-void loop() {
-  if (!client.connected()) {
-    reconnect();
-  }
-  client.loop();
-
-  if (millis() - waktuTerakhirMakanOtomatis >= INTERVAL_OTOMATIS) {
-    Serial.println("\n[JADWAL] Meminta stempel waktu dari web untuk pakan otomatis...");
+    <div id="status-label" class="status-mqtt offline">Menghubungkan ke Broker MQTT...</div>
+    <div id="counter-label" class="counter-box">Menunggu sinkronisasi data dari alat...</div>
     
-    // Alih-alih langsung gerak, ESP32 nge-ping web untuk minta waktu saat ini
-    if (client.connected()) {
-      client.publish("cotswoldies/pakan/status", "MINTA_WAKTU_AUTO");
+    <button class="btn-pakan" onclick="beriPakanPaksa()">Beri Pakan Sekarang!</button>
+
+    <div style="margin-top: 30px;">
+        <h3 style="text-align: left;">Riwayat Aktivitas Terpusat</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Waktu</th>
+                    <th>Metode Pemberian</th>
+                </tr>
+            </thead>
+            <tbody id="tabel-histori">
+                <tr><td colspan="2" style="text-align:center; color:#95a5a6;">Memuat riwayat terpusat dari mesin...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const broker = "wss://broker.hivemq.com:8884/mqtt";
+    const client = mqtt.connect(broker);
+
+    const statusLabel = document.getElementById("status-label");
+    const counterLabel = document.getElementById("counter-label");
+    const tabelHistori = document.getElementById("tabel-histori");
+
+    function dapatkanWaktuSekarang() {
+        const sekarang = new Date();
+        const tgl = sekarang.getDate();
+        const bln = sekarang.toLocaleString('id-ID', { month: 'short' });
+        const jam = sekarang.getHours().toString().padStart(2, '0');
+        const min = machinedMin = sekarang.getMinutes().toString().padStart(2, '0');
+        const sec = sekarang.getSeconds().toString().padStart(2, '0');
+        
+        return `${tgl} ${bln} - ${jam}:${min}:${sec} WIB`;
     }
-    
-    waktuTerakhirMakanOtomatis = millis();
-  }
-}
+
+    client.on('connect', () => {
+        statusLabel.innerText = "Koneksi MQTT: ONLINE";
+        statusLabel.className = "status-mqtt online";
+        client.subscribe("cotswoldies/pakan/status");
+        
+        // Meminta data secara berkala saat baru terkoneksi untuk memastikan sinkronisasi ulang
+        setTimeout(() => { client.publish("cotswoldies/pakan/kontrol", "MINTA_DATA"); }, 500);
+        setTimeout(() => { client.publish("cotswoldies/pakan/kontrol", "MINTA_DATA"); }, 1500);
+    });
+
+    client.on('error', (err) => {
+        statusLabel.innerText = "Koneksi MQTT: GAGAL";
+        statusLabel.className = "status-mqtt offline";
+    });
+
+    function beriPakanPaksa() {
+        if (client.connected) {
+            const waktuKlik = dapatkanWaktuSekarang();
+            client.publish("cotswoldies/pakan/kontrol", 'MAKAN_PAKSA~' + waktuKlik); 
+        } else {
+            alert("Gagal! Koneksi terputus.");
+        }
+    }
+
+    client.on('message', (topic, message) => {
+        if (topic === "cotswoldies/pakan/status") {
+            const msgStr = message.toString();
+            
+            // LOGIKA RESPONS TIMESTAMPS UNTUK PAKAN OTOMATIS ESP32
+            if (msgStr === "MINTA_WAKTU_AUTO") {
+                if (client.connected) {
+                    const waktuSekarang = dapatkanWaktuSekarang();
+                    client.publish("cotswoldies/pakan/kontrol", "BALAS_WAKTU_AUTO~" + waktuSekarang);
+                }
+                return;
+            }
+            
+            if(msgStr.includes("SYNC_OTOMATIS~")) {
+                const jumlahOtomatis = msgStr.split("~")[1];
+                counterLabel.innerText = `Total Pakan Otomatis Berhasil Diberikan: ${jumlahOtomatis} Kali`;
+            } 
+            
+            else if(msgStr.includes("LIST_HISTORI~")) {
+                const isiData = msgStr.split("~")[1];
+                tabelHistori.innerHTML = "";
+                
+                if(!isiData || isiData.trim() === "") {
+                    tabelHistori.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#95a5a6;">Belum ada riwayat aktivitas di mesin...</td></tr>';
+                    return;
+                }
+                
+                const arrayHistori = isiData.split("^");
+                
+                for(let i = arrayHistori.length - 1; i >= 0; i--) {
+                    if(!arrayHistori[i]) continue;
+                    
+                    const pecahan = arrayHistori[i].split("|");
+                    const tipe = pecahan[0];
+                    const waktuKejadian = pecahan[1] ? pecahan[1] : "Tidak Diketahui";
+                    
+                    let badge = tipe === "OTOMATIS" ? 
+                        `<span class="badge badge-otomatis">OTOMATIS</span>` : 
+                        `<span class="badge badge-manual">MANUAL</span>`;
+                    
+                    const baris = `<tr><td>${waktuKejadian}</td><td>${badge}</td></tr>`;
+                    tabelHistori.innerHTML += baris;
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>
